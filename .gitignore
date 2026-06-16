@@ -180,3 +180,4 @@ cython_debug/
 **/.tiff
 **/data/*
 .DS_Store
+**/.ckpt
