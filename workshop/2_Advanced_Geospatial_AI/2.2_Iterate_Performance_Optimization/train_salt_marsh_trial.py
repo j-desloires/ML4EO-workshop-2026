@@ -46,7 +46,7 @@ def get_params():
 
     config = os.environ.get(
         "ITERATE_PARAM_CONFIG",
-        "tm_multi_simple_s2_dem_stride_32_ccc.yaml",
+        "config_salt_marsh.yaml",
     )
     # Resolve config path: prefer ITERATE_NB_DIR (set by the notebook) so the
     # config file is found in the notebook's directory even when the trial

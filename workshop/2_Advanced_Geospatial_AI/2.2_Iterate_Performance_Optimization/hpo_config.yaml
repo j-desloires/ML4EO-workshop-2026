@@ -2,7 +2,7 @@ metrics:
   - val_loss  # Metric to optimize (minimize validation loss)
 
 static:
-  config: tm_multi_simple_s2_dem_stride_32_ccc.yaml  # Base terratorch configuration
+  config: config_salt_marsh.yaml  # Base terratorch configuration
   epochs: 2               # Number of epochs per trial
 
 hpo:
