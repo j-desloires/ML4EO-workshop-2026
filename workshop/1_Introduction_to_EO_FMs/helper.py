@@ -27,29 +27,38 @@ def download_model_from_hf(repo_id, config_name, checkpoint_name, project_root):
     Returns:
         tuple: (config_path, checkpoint_path) - Paths to downloaded files
     """
+    from tqdm.auto import tqdm
+    
     # Download config
     config_folder = project_root / "configs" / "inference"
     config_folder.mkdir(parents=True, exist_ok=True)
     
+    print(f"Downloading config: {config_name}")
     config_file = Path(
         hf_hub_download(
             repo_id=repo_id,
             filename=config_name,
             local_dir=config_folder,
+            resume_download=True,  # Resume if interrupted
         )
     )
+    print(f"✓ Config downloaded")
     
-    # Download checkpoint
+    # Download checkpoint (this may take a few minutes for large files)
     checkpoint_folder = project_root / "data" / "checkpoints"
     checkpoint_folder.mkdir(parents=True, exist_ok=True)
     
+    print(f"\nDownloading checkpoint: {checkpoint_name}")
+    print("⏳ This may take a few minutes (~350MB file)...")
     checkpoint_file = Path(
         hf_hub_download(
             repo_id=repo_id,
             filename=checkpoint_name,
             local_dir=checkpoint_folder,
+            resume_download=True,  # Resume if interrupted
         )
     )
+    print(f"✓ Checkpoint downloaded")
     
     return config_file, checkpoint_file
 
