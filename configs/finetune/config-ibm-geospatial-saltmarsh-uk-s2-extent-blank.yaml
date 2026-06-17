@@ -17,8 +17,8 @@ trainer:
   check_val_every_n_epoch: 1
   log_every_n_steps: 1
   enable_checkpointing: true
-  default_root_dir: ... 
-
+  default_root_dir: ...
+  
 data:
   class_path: GenericMultiModalDataModule
   init_args:
@@ -26,56 +26,69 @@ data:
     batch_size: 16
     num_workers: 8
     constant_scale: 
-      RGB: 1
-      DEM: 1
+      S2L2A: 1
+      # DEM: 1 #example additional modality
     modalities:
-      - RGB
-      - DEM
-    dataset_bands: # what bands are in your data 
-      RGB: 
-        - RED
-        - GREEN
+      - S2L2A
+      # - DEM 
+    dataset_bands: # what bands are in your data
+      S2L2A:
         - BLUE
+        - GREEN
+        - RED
         - NIR_NARROW
-      DEM:
-        - DEM
-    output_bands: # which bands do you want to fine-tune 
-      RGB: 
-        - RED
-        - GREEN
-        - BLUE
-      DEM:
-        - DEM
+        - SWIR_1
+        - SWIR_2
+      # DEM:
+        # - DEM
+    output_bands: # which bands do you want to fine-tune
+      S2L2A:
+        - ...
+      # DEM:
+        # - DEM
     rgb_modality: RGB
     rgb_indices:
       - 0
       - 1
       - 2
     train_data_root:
-      RGB: ...
-      DEM: ...
+      S2L2A: ...
+      # DEM: ...
     train_label_data_root: ...
     val_data_root:
-      RGB: ...
-      DEM: ...
+      S2L2A: ...
+      # DEM: ...
     val_label_data_root: ...
     test_data_root:
-      RGB: ...
-      DEM: ...
+      S2L2A: ...
+      # DEM: ...
     test_label_data_root: ...
     image_grep:
-      RGB: "*_img.tif"    
-      DEM: "*_dtm.tif"    
-    label_grep: "*_lab.tif"
+      S2L2A: ...    
+    label_grep: ...
     no_label_replace: -1
     no_data_replace: 0
     means: 
-      RGB: [115.19354359729066, 118.86120546240689, 109.12759241561714]  # 3 bands: R,G,B only
-      DEM: [2.735197109704771]  # 1 band: elevation
+      S2L2A: [
+        530.1647429643898,
+        798.664137050334,
+        788.9290127562836,
+        2558.942396063767,
+        1774.444227123873,
+        1101.935018300794,
+      ]
+      # DEM: [7.02951132161297]  # 1 band: elevation
     stds: 
-      RGB: [33.664398370098894, 28.304623270249305, 28.10635937087942]  # 3 bands: R,G,B only
-      DEM: [3.4882057325526548]
-    num_classes: 2
+      S2L2A: [
+        275.17493711717844,
+        316.9247986961961,
+        539.6066170066144,
+        1625.0164464430488,
+        1136.4428972983876,
+        780.1759822579997,
+      ]
+      # DEM: [12.729338251901591]
+    num_classes: ...
 
 model:
   class_path: terratorch.tasks.SemanticSegmentationTask 
@@ -83,12 +96,15 @@ model:
     model_args:
       backbone_pretrained: true
       backbone: terramind_v1_base
-      # backbone_pretrain_img_size: 512 #TODO - check
-      decoder_channels: 256 #TODO - check
-      backbone_modalities: 
-        - RGB
-        - DEM
-      backbone_merge_method: mean #TODO - check in source code what it's doing
+      decoder_channels: 256 
+      backbone_modalities:
+        - S2L2A
+        # - DEM
+      backbone_merge_method: mean 
+      backbone_bands: {
+        "S2L2A": [...], 
+        # "DEM": [DEM]
+        }
       num_classes: 2
       head_dropout: 0.1
       decoder: FCNDecoder
