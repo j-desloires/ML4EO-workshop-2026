@@ -2755,7 +2755,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "terrakit", git = "https://github.com/torchgeo/terrakit.git?rev=feature%2Ftile_group_index" },
+    { name = "terrakit", specifier = ">=0.1.8.post1" },
     { name = "terratorch", git = "https://github.com/helen-tamura-wicks/terratorch.git?rev=main" },
     { name = "terratorch-iterate" },
 ]
@@ -5524,7 +5524,7 @@ wheels = [
 [[package]]
 name = "terrakit"
 version = "0.1.8.post1"
-source = { git = "https://github.com/torchgeo/terrakit.git?rev=feature%2Ftile_group_index#3e7775800dbba5d85c377891cd0cd5722f0a16b0" }
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohttp" },
     { name = "boto3" },
@@ -5560,6 +5560,10 @@ dependencies = [
     { name = "urllib3" },
     { name = "xarray" },
     { name = "zarr" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/cc/9a/6426fe69042044f6bc2bcf762b61a16c79424d1f7aeb46d9d52823c0b966/terrakit-0.1.8.post1.tar.gz", hash = "sha256:194ab0fa63e8a2eca03808af210354648070bdf4dfefbefefb5ddda325be2ac7", size = 348410, upload-time = "2026-06-05T19:07:44.079Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/3f/a7/912b6f125ab9000e98b233949f150c762dd063a808f356e6ad74ede19a53/terrakit-0.1.8.post1-py3-none-any.whl", hash = "sha256:bffa69e60860a7a2e75ca24551b7665ee8eae7ac08a5c5b4f7730e5c1158a1c1", size = 373448, upload-time = "2026-06-05T19:07:41.993Z" },
 ]
 
 [[package]]
