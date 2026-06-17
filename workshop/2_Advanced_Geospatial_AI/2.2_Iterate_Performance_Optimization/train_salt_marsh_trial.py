@@ -1,23 +1,25 @@
 #!/usr/bin/env python3
 """
-Trial script for iterate HPO over the burn scars downstream segmentation task.
+Trial script for iterate HPO over the salt marsh downstream segmentation task.
 
 iterate passes sampled and static parameters as environment variables:
-  ITERATE_PARAM_LR       – learning rate sampled by Optuna
+  ITERATE_PARAM_*        – Any hyperparameter (e.g., LR, BATCH_SIZE, WEIGHT_DECAY)
   ITERATE_PARAM_CONFIG   – base terratorch config file (static)
   ITERATE_PARAM_EPOCHS   – number of training epochs per trial (static)
   ITERATE_TRIAL_NUMBER   – integer trial index
   ITERATE_OUT_FILE       – path where metrics must be written (name: value)
 
-The script:
-  1. Reads parameters from ITERATE_PARAM_* environment variables.
-  2. Invokes the terratorch CLI via subprocess, overriding the learning rate
-     with a jsonargparse dotted-key flag:
-       terratorch fit -c <config> \\
-           --optimizer.init_args.lr <lr> \\
-           --trainer.max_epochs <epochs>
-  3. Parses Lightning's CSV log to extract the best validation loss.
-  4. Writes the metric to ITERATE_OUT_FILE so iterate can read it.
+The script automatically handles any hyperparameters defined in hpo_config.yaml:
+  1. Reads ALL parameters from ITERATE_PARAM_* environment variables dynamically.
+  2. Maps them to appropriate terratorch CLI arguments (e.g., lr -> --optimizer.init_args.lr).
+  3. Invokes the terratorch CLI via subprocess with all hyperparameter overrides.
+  4. Parses Lightning's CSV log to extract the best validation loss.
+  5. Writes the metric to ITERATE_OUT_FILE so iterate can read it.
+
+To add new hyperparameters:
+  - Simply add them to the 'hpo' section in hpo_config.yaml
+  - The script will automatically detect and apply them
+  - For custom mappings, update the param_mappings dict in build_terratorch_args()
 """
 
 import csv
@@ -31,19 +33,37 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 
 
 def get_params():
-    """Read trial parameters from ITERATE_PARAM_* environment variables."""
-    lr_str = os.environ.get("ITERATE_PARAM_LR")
-    if lr_str is None:
-        print("ERROR: ITERATE_PARAM_LR not set", file=sys.stderr)
-        sys.exit(1)
-    lr = float(lr_str)
-
-    batch_size_str = os.environ.get("ITERATE_PARAM_BATCH_SIZE")
-    if batch_size_str is None:
-        print("ERROR: ITERATE_PARAM_BATCH_SIZE not set", file=sys.stderr)
-        sys.exit(1)
-    batch_size = int(batch_size_str)
-
+    """
+    Read trial parameters from ITERATE_PARAM_* environment variables.
+    
+    Returns a dictionary of all hyperparameters found, plus config_path and epochs.
+    Automatically discovers all ITERATE_PARAM_* variables and converts them to
+    appropriate types.
+    """
+    params = {}
+    
+    # Scan all environment variables for ITERATE_PARAM_* prefix
+    for key, value in os.environ.items():
+        if key.startswith("ITERATE_PARAM_"):
+            param_name = key.replace("ITERATE_PARAM_", "").lower()
+            
+            # Skip special parameters that aren't hyperparameters
+            if param_name in ["config", "epochs"]:
+                continue
+            
+            # Try to infer type and convert
+            try:
+                # Try integer first
+                if "." not in value and "e" not in value.lower():
+                    params[param_name] = int(value)
+                else:
+                    # Otherwise treat as float
+                    params[param_name] = float(value)
+            except ValueError:
+                # If conversion fails, keep as string
+                params[param_name] = value
+    
+    # Handle special static parameters
     config = os.environ.get(
         "ITERATE_PARAM_CONFIG",
         "config_salt_marsh.yaml",
@@ -57,7 +77,8 @@ def get_params():
         config_path = base / config_path
 
     epochs = int(os.environ.get("ITERATE_PARAM_EPOCHS", "5"))
-    return lr, batch_size, config_path, epochs
+    
+    return params, config_path, epochs
 
 
 def find_metrics_csv(root: Path):
@@ -87,22 +108,62 @@ def best_val_loss(metrics_csv: Path) -> float:
     return min(values)
 
 
+def build_terratorch_args(params: dict) -> list:
+    """
+    Build terratorch CLI arguments from hyperparameters.
+    
+    Maps parameter names to their corresponding terratorch CLI argument paths.
+    Common mappings:
+      - lr -> --optimizer.init_args.lr
+      - batch_size -> --data.init_args.batch_size
+      - weight_decay -> --optimizer.init_args.weight_decay
+      - dropout -> --model.init_args.dropout
+      
+    For unknown parameters, attempts to map them intelligently based on name.
+    """
+    args = []
+    
+    # Define known parameter mappings
+    param_mappings = {
+        "lr": "--optimizer.init_args.lr",
+        "batch_size": "--data.init_args.batch_size",
+        "weight_decay": "--optimizer.init_args.weight_decay",
+        "num_workers": "--data.init_args.num_workers",
+        # Add more mappings as needed
+    }
+    
+    for param_name, param_value in params.items():
+        # Use known mapping if available
+        if param_name in param_mappings:
+            cli_arg = param_mappings[param_name]
+        else:
+            # For unknown parameters, try to infer the path
+            # Default to optimizer.init_args for most training hyperparameters
+            cli_arg = f"--optimizer.init_args.{param_name}"
+            print(f"[INFO] Unknown parameter '{param_name}', mapping to {cli_arg}")
+        
+        args.extend([cli_arg, str(param_value)])
+    
+    return args
+
+
 def main() -> None:
     # ------------------------------------------------------------------ #
     # 1. Read parameters from ITERATE_PARAM_* environment variables
     # ------------------------------------------------------------------ #
-    lr, batch_size, config_path, epochs = get_params()
+    params, config_path, epochs = get_params()
 
     trial_num = os.environ.get("ITERATE_TRIAL_NUMBER", "?")
     out_file  = os.environ.get("ITERATE_OUT_FILE")
 
-    print(f"[trial {trial_num}] lr={lr:.2e} batch_size {batch_size}  epochs={epochs}  config={config_path}")
+    # Print all hyperparameters
+    params_str = "  ".join([f"{k}={v}" for k, v in params.items()])
+    print(f"[trial {trial_num}] {params_str}  epochs={epochs}  config={config_path}")
 
     # ------------------------------------------------------------------ #
-    # 2. Run terratorch fit with jsonargparse override for learning rate
-    #    and bathc size. The dotted key `optimizer.init_args.lr` follows 
-    #    Lightning-CLI jsonargparse conventions and works with any 
-    # optimizer block.
+    # 2. Run terratorch fit with jsonargparse overrides for all hyperparameters.
+    #    The dotted keys (e.g., `optimizer.init_args.lr`) follow
+    #    Lightning-CLI jsonargparse conventions and work with any optimizer block.
     # ------------------------------------------------------------------ #
     log_dir = SCRIPT_DIR / f"hpo_trial_{trial_num}"
     log_dir.mkdir(parents=True, exist_ok=True)
@@ -118,16 +179,22 @@ def main() -> None:
         '"name":"","version":0}}'
     )
 
+    # Build base command
     cmd = [
         sys.executable, "-m", "terratorch",
         "fit",
         "-c", str(config_path),
-        "--optimizer.init_args.lr", str(lr),
-        "--data.init_args.batch_size", str(batch_size),
+    ]
+    
+    # Add dynamically generated hyperparameter arguments
+    cmd.extend(build_terratorch_args(params))
+    
+    # Add trainer configuration
+    cmd.extend([
         "--trainer.max_epochs", str(epochs),
         "--trainer.default_root_dir", str(log_dir),
         "--trainer.logger", logger_json,
-    ]
+    ])
     
     result = subprocess.run(cmd)
 
@@ -160,7 +227,6 @@ def main() -> None:
     else:
         # Fallback: print in the expected format if env var is not set
         print(f"val_loss: {val_loss}")
-
 
 if __name__ == "__main__":
     main()
