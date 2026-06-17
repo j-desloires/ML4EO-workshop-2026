@@ -1,8 +1,9 @@
 """
-Helper functions for visualization in the TerraMind workshop notebooks.
+Helper functions for visualization and model management in the TerraMind workshop notebooks.
 
-This module provides utilities for loading and visualizing geospatial raster data,
-including RGB imagery, DEM data, labels, and predictions.
+This module provides utilities for:
+- Loading and visualizing geospatial raster data (RGB imagery, DEM data, labels, predictions)
+- Downloading models and configs from HuggingFace
 """
 
 import numpy as np
@@ -10,6 +11,47 @@ import rasterio
 from pathlib import Path
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
+from huggingface_hub import hf_hub_download
+
+
+def download_model_from_hf(repo_id, config_name, checkpoint_name, project_root):
+    """
+    Download model config and checkpoint from HuggingFace Hub.
+    
+    Args:
+        repo_id: HuggingFace repository ID (e.g., "username/model-name")
+        config_name: Name of the config file in the repo (e.g., "config.yaml")
+        checkpoint_name: Name of the checkpoint file in the repo (e.g., "model.ckpt")
+        project_root: Path to project root directory
+    
+    Returns:
+        tuple: (config_path, checkpoint_path) - Paths to downloaded files
+    """
+    # Download config
+    config_folder = project_root / "configs" / "inference"
+    config_folder.mkdir(parents=True, exist_ok=True)
+    
+    config_file = Path(
+        hf_hub_download(
+            repo_id=repo_id,
+            filename=config_name,
+            local_dir=config_folder,
+        )
+    )
+    
+    # Download checkpoint
+    checkpoint_folder = project_root / "data" / "checkpoints"
+    checkpoint_folder.mkdir(parents=True, exist_ok=True)
+    
+    checkpoint_file = Path(
+        hf_hub_download(
+            repo_id=repo_id,
+            filename=checkpoint_name,
+            local_dir=checkpoint_folder,
+        )
+    )
+    
+    return config_file, checkpoint_file
 
 
 def load_raster(file_path, rgb_only=False):

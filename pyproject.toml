@@ -15,6 +15,7 @@ dependencies = [
     "terratorch",
     "terratorch-iterate",
     "terrakit",
+    "huggingface-hub",
 ]
 
 [dependency-groups]
