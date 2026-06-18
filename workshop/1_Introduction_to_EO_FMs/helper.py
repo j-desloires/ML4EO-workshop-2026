@@ -1,4 +1,7 @@
 """
+# © Copyright IBM Corporation 2026
+# SPDX-License-Identifier: Apache-2.0
+
 Helper functions for visualization and model management in the TerraMind workshop notebooks.
 
 This module provides utilities for:
