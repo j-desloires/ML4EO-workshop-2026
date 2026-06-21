@@ -494,3 +494,100 @@ def plot_s2_rgbdem_model_pred(
     print(f"  DEM: {Path(rgbdem_dem_file).name}")
     print(f"  Label: {Path(rgbdem_lab_file).name}")
     print(f"  Prediction: {Path(rgbdem_pred).name}")
+
+
+def clip_raster_to_size(
+    input_path, output_path, width=400, height=400, x_offset=0, y_offset=0
+):
+    """
+    Clip a raster file to a specified size from a given offset.
+
+    Args:
+        input_path: Path to input raster file
+        output_path: Path to save clipped raster
+        width: Width of output raster in pixels (default: 400)
+        height: Height of output raster in pixels (default: 400)
+        x_offset: X offset from top-left corner (default: 0)
+        y_offset: Y offset from top-left corner (default: 0)
+
+    Returns:
+        Path: Path to the clipped output file
+    """
+    from pathlib import Path
+
+    import rasterio
+    from rasterio.windows import Window
+
+    input_path = Path(input_path)
+    output_path = Path(output_path)
+
+    # Create output directory if it doesn't exist
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with rasterio.open(input_path) as src:
+        # Define the window to read (x_offset, y_offset, width, height)
+        window = Window(x_offset, y_offset, width, height)
+
+        # Read the data for this window
+        data = src.read(window=window)
+
+        # Update metadata for the clipped raster
+        out_meta = src.meta.copy()
+        out_meta.update(
+            {
+                "height": height,
+                "width": width,
+                "transform": rasterio.windows.transform(window, src.transform),
+            }
+        )
+
+        # Write the clipped raster
+        with rasterio.open(output_path, "w", **out_meta) as dst:
+            dst.write(data)
+
+    print(f"✓ Clipped {input_path.name} to {width}x{height} pixels")
+    print(f"  Saved to: {output_path}")
+
+    return output_path
+
+
+def clip_directory_rasters(
+    input_dir, output_dir, file_pattern="*.tif", width=400, height=400
+):
+    """
+    Clip all raster files matching a pattern in a directory.
+
+    Args:
+        input_dir: Directory containing input rasters
+        output_dir: Directory to save clipped rasters
+        file_pattern: Glob pattern for files to clip (default: "*.tif")
+        width: Width of output rasters in pixels (default: 400)
+        height: Height of output rasters in pixels (default: 400)
+
+    Returns:
+        list: Paths to all clipped files
+    """
+    from pathlib import Path
+
+    input_dir = Path(input_dir)
+    output_dir = Path(output_dir)
+
+    # Find all matching files
+    input_files = list(input_dir.glob(file_pattern))
+
+    if not input_files:
+        print(f"⚠ No files found matching pattern '{file_pattern}' in {input_dir}")
+        return []
+
+    print(f"Found {len(input_files)} files to clip:")
+    clipped_files = []
+
+    for input_file in input_files:
+        output_file = output_dir / input_file.name
+        clipped_path = clip_raster_to_size(
+            input_file, output_file, width=width, height=height
+        )
+        clipped_files.append(clipped_path)
+
+    print(f"\n✓ Clipped {len(clipped_files)} files to {output_dir}")
+    return clipped_files
